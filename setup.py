@@ -1,17 +1,23 @@
 # coding: utf-8
 import os
+import re
 
 from setuptools import setup
 
-from mmdb_writer import __version__
 
+def get_version(file):
+    init_py = open(file).read()
+    return re.search("__version__ = ['\"]([^'\"]+)['\"]", init_py).group(1)
+
+
+version = get_version('mmdb_writer.py')
 f = open(os.path.join(os.path.dirname(__file__), 'README.md'))
 readme = f.read()
 f.close()
 
 setup(
     name="mmdb_writer",
-    version=__version__,
+    version=version,
     description="Make `mmdb` format ip library file which can be read by maxmind official language reader",
     long_description=readme,
     long_description_content_type="text/markdown",
