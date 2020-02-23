@@ -28,6 +28,6 @@ assert r == {'country': 'COUNTRY', 'isp': 'ISP'}
 see [csv_to_mmdb.py](./examples/csv_to_mmdb.py)
 
 
-## reference: 
+## Reference: 
 - [MaxmindDB format](http://maxmind.github.io/MaxMind-DB/)
 - [geoip-mmdb](https://github.com/i-rinat/geoip-mmdb)
