@@ -1,5 +1,5 @@
 # coding: utf-8
-__version__ = '0.1.0'
+__version__ = '0.1.1'
 
 import logging
 import math
@@ -7,7 +7,7 @@ import struct
 import time
 from typing import Union
 
-from netaddr import IPSet
+from netaddr import IPSet, IPNetwork
 
 MMDBType = Union[dict, list, str, bytes, int, bool]
 
@@ -426,18 +426,24 @@ class MMDBWriter(object):
                 cidr = cidr.ipv6(True)
             node = self.tree
             bits = list(bits_rstrip(cidr.value, self._bit_length, cidr.prefixlen))
-            try:
-                for i in bits[:-1]:
-                    node = node.get_or_create(i)
-                if node[bits[-1]] is not None:
-                    logger.warning("address %s info is not empty: %s, will override with %s",
-                                   cidr, node[bits[-1]], leaf)
-            except (AttributeError, TypeError) as e:
-                bits_str = ''.join(map(str, bits))
-                logger.warning("{cidr}({bits_str})[{content}] is subnet of {node}, pass!"
-                               .format(cidr=cidr, bits_str=bits_str, content=content, node=node))
-                continue
-            node[bits[-1]] = leaf
+            current_node = node
+            supernet_leaf = None  # Tracks whether we are inserting into a subnet
+            for (index, ip_bit) in enumerate(bits[:-1]):
+                previous_node = current_node
+                current_node = previous_node.get_or_create(ip_bit)
+
+                if isinstance(current_node, SearchTreeLeaf):
+                    current_cidr = IPNetwork((int(''.join(map(str, bits[:index + 1])).ljust(self._bit_length, '0'), 2), index + 1))
+                    logger.info(f"Inserting {cidr} ({content}) into subnet of {current_cidr} ({current_node.value})")
+                    supernet_leaf = current_node
+                    current_node = SearchTreeNode()
+                    previous_node[ip_bit] = current_node
+
+                if supernet_leaf:
+                    next_bit = bits[index + 1]
+                    # Insert supernet information on each inverse bit of the current subnet
+                    current_node[1 - next_bit] = supernet_leaf
+            current_node[bits[-1]] = leaf
 
     def to_db_file(self, filename: str):
         return TreeWriter(self.tree, self._build_meta()).write(filename)
