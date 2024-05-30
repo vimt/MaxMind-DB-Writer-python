@@ -6,6 +6,7 @@ import math
 import struct
 import time
 from typing import Union
+from decimal import Decimal
 
 from netaddr import IPSet, IPNetwork
 
@@ -205,6 +206,8 @@ class Encoder(object):
                 return 8
             else:
                 return 5
+        if value_type is Decimal:
+            return 3
         raise TypeError("unknown type {value_type}".format(value_type=value_type))
 
     def encode_meta(self, meta):
