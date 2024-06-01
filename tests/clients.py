@@ -6,6 +6,7 @@ import subprocess
 import unittest
 from pathlib import Path
 
+import maxminddb
 from netaddr.ip.sets import IPSet
 
 from mmdb_writer import MMDBWriter, MmdbBaseType, MmdbF32
@@ -59,20 +60,34 @@ class TestClients(unittest.TestCase):
 
         writer.to_db_file(str(self.filepath))
 
-    def convert_bytes(self, d, bytes_convert):
-        if isinstance(d, bytes):
-            return bytes_convert(d)
-        elif isinstance(d, dict):
-            return {k: self.convert_bytes(v, bytes_convert) for k, v in d.items()}
-        elif isinstance(d, list):
-            return [self.convert_bytes(i, bytes_convert) for i in d]
-        elif isinstance(d, MmdbF32):
-            # convert float32 to float
-            return float(str(d.value))
-        elif isinstance(d, MmdbBaseType):
-            return d.value
-        else:
-            return d
+    @staticmethod
+    def convert_bytes(d, bytes_convert, f32_convert=lambda x: float(str(x))):
+        def inner(d):
+            if isinstance(d, bytes):
+                return bytes_convert(d)
+            elif isinstance(d, dict):
+                return {k: inner(v) for k, v in d.items()}
+            elif isinstance(d, list):
+                return [inner(i) for i in d]
+            elif isinstance(d, MmdbF32):
+                return f32_convert(d.value)
+            elif isinstance(d, MmdbBaseType):
+                return d.value
+            else:
+                return d
+
+        return inner(d)
+
+    def test_python(self):
+        for mode in (maxminddb.MODE_MMAP_EXT, maxminddb.MODE_MMAP, maxminddb.MODE_FILE):
+            m = maxminddb.open_database(self.filepath, mode=mode)
+            python_data = m.get(self.ip)
+            should_data = self.origin_data.dict()
+            should_data = self.convert_bytes(
+                should_data, lambda x: bytearray(x), lambda x: float(x)
+            )
+            self.assertDictEqual(should_data, python_data)
+            m.close()
 
     def test_java(self):
         java_dir = BASE_DIR / "clients" / "java"

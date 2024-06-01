@@ -1,8 +1,18 @@
 import random
 from dataclasses import dataclass
 
-from mmdb_writer import MmdbI32, MmdbF32, MmdbF64, MmdbU16, MmdbU32, MmdbU64, MmdbU128
 import numpy as np
+
+from mmdb_writer import (
+    MmdbI32,
+    MmdbF32,
+    MmdbF64,
+    MmdbU16,
+    MmdbU32,
+    MmdbU64,
+    MmdbU128,
+    MmdbBaseType,
+)
 
 
 def random_str(length=10):

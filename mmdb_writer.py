@@ -145,7 +145,6 @@ FloatType = Union[Literal["f32", "f64"] | MmdbF32 | MmdbF64]
 
 
 class Encoder(object):
-
     def __init__(
         self, cache=True, int_type: IntType = "auto", float_type: FloatType = "f64"
     ):
@@ -208,7 +207,13 @@ class Encoder(object):
         return self._make_header(MMDBTypeID.BYTES, len(value)) + value
 
     def _encode_uint(self, type_id, max_len):
+        value_max = 2 ** (max_len * 8)
+
         def _encode_unsigned_value(value):
+            if value < 0 or value >= value_max:
+                raise ValueError(
+                    f"encode uint{max_len * 8} fail: {value} not in range(0, {value_max})"
+                )
             res = b""
             while value != 0 and len(res) < max_len:
                 res = struct.pack(">B", value & 0xFF) + res
@@ -304,7 +309,7 @@ class Encoder(object):
         if type_id:
             return type_id
         if value_type is int:
-            if self.int_type is "auto":
+            if self.int_type == "auto":
                 if value > UINT64_MAX:
                     return MMDBTypeID.UINT128
                 elif value > UINT32_MAX:
@@ -388,7 +393,13 @@ class Encoder(object):
 class TreeWriter(object):
     encoder_cls = Encoder
 
-    def __init__(self, tree, meta):
+    def __init__(
+            self,
+            tree: "SearchTreeNode",
+            meta: dict,
+            int_type: IntType = "auto",
+            float_type: FloatType = "f64",
+    ):
         self._node_idx = {}
         self._leaf_offset = {}
         self._node_list = []
@@ -398,7 +409,9 @@ class TreeWriter(object):
         self.tree = tree
         self.meta = meta
 
-        self.encoder = self.encoder_cls(cache=True)
+        self.encoder = self.encoder_cls(
+            cache=True, int_type=int_type, float_type=float_type
+        )
 
     @property
     def _data_list(self):
@@ -513,7 +526,6 @@ def bits_rstrip(n, length=None, keep=0):
 
 
 class MMDBWriter(object):
-
     def __init__(
         self,
         ip_version=4,
@@ -524,6 +536,21 @@ class MMDBWriter(object):
         int_type: IntType = "auto",
         float_type: FloatType = "f64",
     ):
+        """
+        Args:
+            ip_version (int, optional): The IP version of the database. Defaults to 4.
+            database_type (str, optional): The type of the database. Defaults to "GeoIP".
+            languages (List[str], optional): A list of languages. Defaults to [].
+            description (Union[Dict[str, str], str], optional): A description of the database for every language.
+            ipv4_compatible (bool, optional): Whether the database is compatible with IPv4. Defaults to False.
+            int_type (Union[str, MmdbU16, MmdbU32, MmdbU64, MmdbU128, MmdbI32], optional): The type of integer to use. Defaults to "auto".
+            float_type (Union[str, MmdbF32, MmdbF64], optional): The type of float to use. Defaults to "f64".
+
+        Note:
+            If you want to store an IPv4 address in an IPv6 database, you should set ipv4_compatible=True.
+
+            If you want to use a specific integer type, you can set int_type to "u16", "u32", "u64", "u128", or "i32".
+        """
         self.tree = SearchTreeNode()
         self.ipv4_compatible = ipv4_compatible
 
@@ -631,7 +658,9 @@ class MMDBWriter(object):
             current_node[bits[-1]] = leaf
 
     def to_db_file(self, filename: str):
-        return TreeWriter(self.tree, self._build_meta()).write(filename)
+        return TreeWriter(
+            self.tree, self._build_meta(), self.int_type, self.float_type
+        ).write(filename)
 
     def _build_meta(self):
         return {
