@@ -1,20 +1,100 @@
 # coding: utf-8
-__version__ = '0.1.1'
+__version__ = "0.2.1"
 
 import logging
 import math
 import struct
 import time
-from typing import Union
 from decimal import Decimal
+from enum import IntEnum
+from typing import Union, List, Dict, Literal
 
 from netaddr import IPSet, IPNetwork
 
-MMDBType = Union[dict, list, str, bytes, int, bool]
+
+class MmdbBaseType(object):
+    def __init__(self, value):
+        self.value = value
+
+
+# type hint
+class MmdbF32(MmdbBaseType):
+    def __init__(self, value: float):
+        super().__init__(value)
+
+
+class MmdbF64(MmdbBaseType):
+    def __init__(self, value: Union[float | Decimal]):
+        super().__init__(value)
+
+
+class MmdbI32(MmdbBaseType):
+    def __init__(self, value: int):
+        super().__init__(value)
+
+
+class MmdbU16(MmdbBaseType):
+    def __init__(self, value: int):
+        super().__init__(value)
+
+
+class MmdbU32(MmdbBaseType):
+    def __init__(self, value: int):
+        super().__init__(value)
+
+
+class MmdbU64(MmdbBaseType):
+    def __init__(self, value: int):
+        super().__init__(value)
+
+
+class MmdbU128(MmdbBaseType):
+    def __init__(self, value: int):
+        super().__init__(value)
+
+
+MMDBType = Union[
+    dict,
+    list,
+    str,
+    bytes,
+    int,
+    bool,
+    MmdbF32,
+    MmdbF64,
+    MmdbI32,
+    MmdbU16,
+    MmdbU32,
+    MmdbU64,
+    MmdbU128,
+]
 
 logger = logging.getLogger(__name__)
 
-METADATA_MAGIC = b'\xab\xcd\xefMaxMind.com'
+METADATA_MAGIC = b"\xab\xcd\xefMaxMind.com"
+
+
+class MMDBTypeID(IntEnum):
+    POINTER = 1
+    STRING = 2
+    DOUBLE = 3
+    BYTES = 4
+    UINT16 = 5
+    UINT32 = 6
+    MAP = 7
+    INT32 = 8
+    UINT64 = 9
+    UINT128 = 10
+    ARRAY = 11
+    DATA_CACHE = 12
+    END_MARKER = 13
+    BOOLEAN = 14
+    FLOAT = 15
+
+
+UINT16_MAX = 0xFFFF
+UINT32_MAX = 0xFFFFFFFF
+UINT64_MAX = 0xFFFFFFFFFFFFFFFF
 
 
 class SearchTreeNode(object):
@@ -53,55 +133,97 @@ class SearchTreeLeaf(object):
     __str__ = __repr__
 
 
-class Encoder(object):
+IntType = Union[
+    Literal["auto", "u16", "u32", "u64", "u128", "i32"]
+    | MmdbU16
+    | MmdbU32
+    | MmdbU64
+    | MmdbU128
+    | MmdbI32
+]
+FloatType = Union[Literal["f32", "f64"] | MmdbF32 | MmdbF64]
 
-    def __init__(self, cache=True):
+
+class Encoder(object):
+    def __init__(
+        self, cache=True, int_type: IntType = "auto", float_type: FloatType = "f64"
+    ):
+        self.cache = cache
+        self.int_type = int_type
+        self.float_type = float_type
+
         self.data_cache = {}
         self.data_list = []
         self.data_pointer = 0
-
-        self.cache = cache
+        self._python_type_id = {
+            float: MMDBTypeID.DOUBLE,
+            bool: MMDBTypeID.BOOLEAN,
+            list: MMDBTypeID.ARRAY,
+            dict: MMDBTypeID.MAP,
+            bytes: MMDBTypeID.BYTES,
+            str: MMDBTypeID.STRING,
+            MmdbF32: MMDBTypeID.FLOAT,
+            MmdbF64: MMDBTypeID.DOUBLE,
+            MmdbI32: MMDBTypeID.INT32,
+            MmdbU16: MMDBTypeID.UINT16,
+            MmdbU32: MMDBTypeID.UINT32,
+            MmdbU64: MMDBTypeID.UINT64,
+            MmdbU128: MMDBTypeID.UINT128,
+        }
 
     def _encode_pointer(self, value):
         pointer = value
         if pointer >= 134744064:
-            res = struct.pack('>BI', 0x38, pointer)
+            res = struct.pack(">BI", 0x38, pointer)
         elif pointer >= 526336:
             pointer -= 526336
-            res = struct.pack('>BBBB', 0x30 + ((pointer >> 24) & 0x07),
-                              (pointer >> 16) & 0xff, (pointer >> 8) & 0xff,
-                              pointer & 0xff)
+            res = struct.pack(
+                ">BBBB",
+                0x30 + ((pointer >> 24) & 0x07),
+                (pointer >> 16) & 0xFF,
+                (pointer >> 8) & 0xFF,
+                pointer & 0xFF,
+            )
         elif pointer >= 2048:
             pointer -= 2048
-            res = struct.pack('>BBB', 0x28 + ((pointer >> 16) & 0x07),
-                              (pointer >> 8) & 0xff, pointer & 0xff)
+            res = struct.pack(
+                ">BBB",
+                0x28 + ((pointer >> 16) & 0x07),
+                (pointer >> 8) & 0xFF,
+                pointer & 0xFF,
+            )
         else:
-            res = struct.pack('>BB', 0x20 + ((pointer >> 8) & 0x07),
-                              pointer & 0xff)
+            res = struct.pack(">BB", 0x20 + ((pointer >> 8) & 0x07), pointer & 0xFF)
 
         return res
 
     def _encode_utf8_string(self, value):
-        encoded_value = value.encode('utf-8')
-        res = self._make_header(2, len(encoded_value))
+        encoded_value = value.encode("utf-8")
+        res = self._make_header(MMDBTypeID.STRING, len(encoded_value))
         res += encoded_value
         return res
 
     def _encode_bytes(self, value):
-        return self._make_header(4, len(value)) + value
+        return self._make_header(MMDBTypeID.BYTES, len(value)) + value
 
     def _encode_uint(self, type_id, max_len):
+        value_max = 2 ** (max_len * 8)
+
         def _encode_unsigned_value(value):
-            res = b''
+            if value < 0 or value >= value_max:
+                raise ValueError(
+                    f"encode uint{max_len * 8} fail: {value} not in range(0, {value_max})"
+                )
+            res = b""
             while value != 0 and len(res) < max_len:
-                res = struct.pack('>B', value & 0xff) + res
+                res = struct.pack(">B", value & 0xFF) + res
                 value = value >> 8
             return self._make_header(type_id, len(res)) + res
 
         return _encode_unsigned_value
 
     def _encode_map(self, value):
-        res = self._make_header(7, len(value))
+        res = self._make_header(MMDBTypeID.MAP, len(value))
         for k, v in list(value.items()):
             # Keys are always stored by value.
             res += self.encode(k)
@@ -109,13 +231,13 @@ class Encoder(object):
         return res
 
     def _encode_array(self, value):
-        res = self._make_header(11, len(value))
+        res = self._make_header(MMDBTypeID.ARRAY, len(value))
         for k in value:
             res += self.encode(k)
         return res
 
     def _encode_boolean(self, value):
-        return self._make_header(14, 1 if value else 0)
+        return self._make_header(MMDBTypeID.BOOLEAN, 1 if value else 0)
 
     def _encode_pack_type(self, type_id, fmt):
         def pack_type(value):
@@ -124,71 +246,62 @@ class Encoder(object):
 
         return pack_type
 
-    _type_decoder = None
+    _type_encoder = None
 
     @property
-    def type_decoder(self):
-        if self._type_decoder is None:
-            self._type_decoder = {
-                1: self._encode_pointer,
-                2: self._encode_utf8_string,
-                3: self._encode_pack_type(3, '>d'),  # double,
-                4: self._encode_bytes,
-                5: self._encode_uint(5, 2),  # uint16
-                6: self._encode_uint(6, 4),  # uint32
-                7: self._encode_map,
-                8: self._encode_pack_type(8, '>i'),  # int32
-                9: self._encode_uint(9, 8),  # uint64
-                10: self._encode_uint(10, 16),  # uint128
-                11: self._encode_array,
-                14: self._encode_boolean,
-                15: self._encode_pack_type(15, '>f'),  # float,
+    def type_encoder(self):
+        if self._type_encoder is None:
+            self._type_encoder = {
+                MMDBTypeID.POINTER: self._encode_pointer,
+                MMDBTypeID.STRING: self._encode_utf8_string,
+                MMDBTypeID.DOUBLE: self._encode_pack_type(MMDBTypeID.DOUBLE, ">d"),
+                MMDBTypeID.BYTES: self._encode_bytes,
+                MMDBTypeID.UINT16: self._encode_uint(MMDBTypeID.UINT16, 2),
+                MMDBTypeID.UINT32: self._encode_uint(MMDBTypeID.UINT32, 4),
+                MMDBTypeID.MAP: self._encode_map,
+                MMDBTypeID.INT32: self._encode_pack_type(MMDBTypeID.INT32, ">i"),
+                MMDBTypeID.UINT64: self._encode_uint(MMDBTypeID.UINT64, 8),
+                MMDBTypeID.UINT128: self._encode_uint(MMDBTypeID.UINT128, 16),
+                MMDBTypeID.ARRAY: self._encode_array,
+                MMDBTypeID.BOOLEAN: self._encode_boolean,
+                MMDBTypeID.FLOAT: self._encode_pack_type(MMDBTypeID.FLOAT, ">f"),
             }
-        return self._type_decoder
+        return self._type_encoder
 
     def _make_header(self, type_id, length):
         if length >= 16843036:
-            raise Exception('length >= 16843036')
+            raise Exception("length >= 16843036")
 
         elif length >= 65821:
             five_bits = 31
             length -= 65821
-            b3 = length & 0xff
-            b2 = (length >> 8) & 0xff
-            b1 = (length >> 16) & 0xff
-            additional_length_bytes = struct.pack('>BBB', b1, b2, b3)
+            b3 = length & 0xFF
+            b2 = (length >> 8) & 0xFF
+            b1 = (length >> 16) & 0xFF
+            additional_length_bytes = struct.pack(">BBB", b1, b2, b3)
 
         elif length >= 285:
             five_bits = 30
             length -= 285
-            b2 = length & 0xff
-            b1 = (length >> 8) & 0xff
-            additional_length_bytes = struct.pack('>BB', b1, b2)
+            b2 = length & 0xFF
+            b1 = (length >> 8) & 0xFF
+            additional_length_bytes = struct.pack(">BB", b1, b2)
 
         elif length >= 29:
             five_bits = 29
             length -= 29
-            additional_length_bytes = struct.pack('>B', length & 0xff)
+            additional_length_bytes = struct.pack(">B", length & 0xFF)
 
         else:
             five_bits = length
-            additional_length_bytes = b''
+            additional_length_bytes = b""
 
         if type_id <= 7:
-            res = struct.pack('>B', (type_id << 5) + five_bits)
+            res = struct.pack(">B", (type_id << 5) + five_bits)
         else:
-            res = struct.pack('>BB', five_bits, type_id - 7)
+            res = struct.pack(">BB", five_bits, type_id - 7)
 
         return res + additional_length_bytes
-
-    _python_type_id = {
-        float: 15,
-        bool: 14,
-        list: 11,
-        dict: 7,
-        bytes: 4,
-        str: 2
-    }
 
     def python_type_id(self, value):
         value_type = type(value)
@@ -196,25 +309,46 @@ class Encoder(object):
         if type_id:
             return type_id
         if value_type is int:
-            if value > 0xffffffffffffffff:
-                return 10
-            elif value > 0xffffffff:
-                return 9
-            elif value > 0xffff:
-                return 6
-            elif value < 0:
-                return 8
+            if self.int_type == "auto":
+                if value > UINT64_MAX:
+                    return MMDBTypeID.UINT128
+                elif value > UINT32_MAX:
+                    return MMDBTypeID.UINT64
+                elif value > UINT16_MAX:
+                    return MMDBTypeID.UINT32
+                elif value < 0:
+                    return MMDBTypeID.INT32
+                else:
+                    return MMDBTypeID.UINT16
+            elif self.int_type in ("u16", MmdbU16):
+                return MMDBTypeID.UINT16
+            elif self.int_type in ("u32", MmdbU32):
+                return MMDBTypeID.UINT32
+            elif self.int_type in ("u64", MmdbU64):
+                return MMDBTypeID.UINT64
+            elif self.int_type in ("u128", MmdbU128):
+                return MMDBTypeID.UINT128
+            elif self.int_type in ("i32", MmdbI32):
+                return MMDBTypeID.INT32
+        elif value_type is float:
+            if self.float_type in ("f32", MmdbF32):
+                return MMDBTypeID.FLOAT
             else:
-                return 5
-        if value_type is Decimal:
-            return 3
+                return MMDBTypeID.DOUBLE
+        elif value_type is Decimal:
+            return MMDBTypeID.DOUBLE
         raise TypeError("unknown type {value_type}".format(value_type=value_type))
 
     def encode_meta(self, meta):
-        res = self._make_header(7, len(meta))
-        meta_type = {'node_count': 6, 'record_size': 5, 'ip_version': 5,
-                     'binary_format_major_version': 5, 'binary_format_minor_version': 5,
-                     'build_epoch': 9}
+        res = self._make_header(MMDBTypeID.MAP, len(meta))
+        meta_type = {
+            "node_count": 6,
+            "record_size": 5,
+            "ip_version": 5,
+            "binary_format_major_version": 5,
+            "binary_format_minor_version": 5,
+            "build_epoch": 9,
+        }
         for k, v in list(meta.items()):
             # Keys are always stored by value.
             res += self.encode(k)
@@ -232,9 +366,12 @@ class Encoder(object):
             type_id = self.python_type_id(value)
 
         try:
-            encoder = self.type_decoder[type_id]
+            encoder = self.type_encoder[type_id]
         except KeyError:
             raise ValueError("unknown type_id={type_id}".format(type_id=type_id))
+
+        if isinstance(value, MmdbBaseType):
+            value = value.value
         res = encoder(value)
 
         if self.cache:
@@ -256,7 +393,13 @@ class Encoder(object):
 class TreeWriter(object):
     encoder_cls = Encoder
 
-    def __init__(self, tree, meta):
+    def __init__(
+            self,
+            tree: "SearchTreeNode",
+            meta: dict,
+            int_type: IntType = "auto",
+            float_type: FloatType = "f64",
+    ):
         self._node_idx = {}
         self._leaf_offset = {}
         self._node_list = []
@@ -266,7 +409,9 @@ class TreeWriter(object):
         self.tree = tree
         self.meta = meta
 
-        self.encoder = self.encoder_cls(cache=True)
+        self.encoder = self.encoder_cls(
+            cache=True, int_type=int_type, float_type=float_type
+        )
 
     @property
     def _data_list(self):
@@ -280,7 +425,7 @@ class TreeWriter(object):
         return {
             "node_count": self._node_counter,
             "record_size": self.record_size,
-            **self.meta
+            **self.meta,
         }
 
     def _adjust_record_size(self):
@@ -297,7 +442,7 @@ class TreeWriter(object):
         elif bit_count <= 32:
             self.record_size = 32
         else:
-            raise Exception('record_size > 32')
+            raise Exception("record_size > 32")
 
         self.data_offset = self.record_size * 2 / 8 * self._node_counter
 
@@ -335,40 +480,39 @@ class TreeWriter(object):
         right_idx = self._calc_record_idx(node.right)
 
         if self.record_size == 24:
-            b1 = (left_idx >> 16) & 0xff
-            b2 = (left_idx >> 8) & 0xff
-            b3 = left_idx & 0xff
-            b4 = (right_idx >> 16) & 0xff
-            b5 = (right_idx >> 8) & 0xff
-            b6 = right_idx & 0xff
-            return struct.pack('>BBBBBB', b1, b2, b3, b4, b5, b6)
+            b1 = (left_idx >> 16) & 0xFF
+            b2 = (left_idx >> 8) & 0xFF
+            b3 = left_idx & 0xFF
+            b4 = (right_idx >> 16) & 0xFF
+            b5 = (right_idx >> 8) & 0xFF
+            b6 = right_idx & 0xFF
+            return struct.pack(">BBBBBB", b1, b2, b3, b4, b5, b6)
 
         elif self.record_size == 28:
-            b1 = (left_idx >> 16) & 0xff
-            b2 = (left_idx >> 8) & 0xff
-            b3 = left_idx & 0xff
-            b4 = ((left_idx >> 24) & 0xf) * 16 + \
-                 ((right_idx >> 24) & 0xf)
-            b5 = (right_idx >> 16) & 0xff
-            b6 = (right_idx >> 8) & 0xff
-            b7 = right_idx & 0xff
-            return struct.pack('>BBBBBBB', b1, b2, b3, b4, b5, b6, b7)
+            b1 = (left_idx >> 16) & 0xFF
+            b2 = (left_idx >> 8) & 0xFF
+            b3 = left_idx & 0xFF
+            b4 = ((left_idx >> 24) & 0xF) * 16 + ((right_idx >> 24) & 0xF)
+            b5 = (right_idx >> 16) & 0xFF
+            b6 = (right_idx >> 8) & 0xFF
+            b7 = right_idx & 0xFF
+            return struct.pack(">BBBBBBB", b1, b2, b3, b4, b5, b6, b7)
 
         elif self.record_size == 32:
-            return struct.pack('>II', left_idx, right_idx)
+            return struct.pack(">II", left_idx, right_idx)
 
         else:
-            raise Exception('self.record_size > 32')
+            raise Exception("self.record_size > 32")
 
     def write(self, fname):
         self._enumerate_nodes(self.tree)
         self._adjust_record_size()
 
-        with open(fname, 'wb') as f:
+        with open(fname, "wb") as f:
             for node in self._node_list:
                 f.write(self._cal_node_bytes(node))
 
-            f.write(b'\x00' * 16)
+            f.write(b"\x00" * 16)
 
             for element in self._data_list:
                 f.write(element)
@@ -378,14 +522,35 @@ class TreeWriter(object):
 
 
 def bits_rstrip(n, length=None, keep=0):
-    return map(int, bin(n)[2:].rjust(length, '0')[:keep])
+    return map(int, bin(n)[2:].rjust(length, "0")[:keep])
 
 
 class MMDBWriter(object):
+    def __init__(
+        self,
+        ip_version=4,
+        database_type="GeoIP",
+        languages: List[str] = None,
+        description: Union[Dict[str, str] | str] = "GeoIP db",
+        ipv4_compatible=False,
+        int_type: IntType = "auto",
+        float_type: FloatType = "f64",
+    ):
+        """
+        Args:
+            ip_version (int, optional): The IP version of the database. Defaults to 4.
+            database_type (str, optional): The type of the database. Defaults to "GeoIP".
+            languages (List[str], optional): A list of languages. Defaults to [].
+            description (Union[Dict[str, str], str], optional): A description of the database for every language.
+            ipv4_compatible (bool, optional): Whether the database is compatible with IPv4. Defaults to False.
+            int_type (Union[str, MmdbU16, MmdbU32, MmdbU64, MmdbU128, MmdbI32], optional): The type of integer to use. Defaults to "auto".
+            float_type (Union[str, MmdbF32, MmdbF64], optional): The type of float to use. Defaults to "f64".
 
-    def __init__(self, ip_version=4, database_type='GeoIP',
-                 languages=None, description='GeoIP db',
-                 ipv4_compatible=False):
+        Note:
+            If you want to store an IPv4 address in an IPv6 database, you should set ipv4_compatible=True.
+
+            If you want to use a specific integer type, you can set int_type to "u16", "u32", "u64", "u128", or "i32".
+        """
         self.tree = SearchTreeNode()
         self.ipv4_compatible = ipv4_compatible
 
@@ -401,43 +566,87 @@ class MMDBWriter(object):
         self._bit_length = 128 if ip_version == 6 else 32
 
         if ip_version not in [4, 6]:
-            raise ValueError("ip_version should be 4 or 6, {} is incorrect".format(ip_version))
+            raise ValueError(
+                "ip_version should be 4 or 6, {} is incorrect".format(ip_version)
+            )
         if ip_version == 4 and ipv4_compatible:
             raise ValueError("ipv4_compatible=True can set when ip_version=6")
         if not self.binary_format_major_version:
-            raise ValueError("major_version can't be empty or 0: {}".format(self.binary_format_major_version))
+            raise ValueError(
+                "major_version can't be empty or 0: {}".format(
+                    self.binary_format_major_version
+                )
+            )
         if isinstance(description, str):
             self.description = {i: description for i in languages}
         for i in languages:
             if i not in self.description:
                 raise ValueError("language {} must have description!")
 
-    def insert_network(self, network: IPSet, content: MMDBType):
+        self.int_type = int_type
+        self.float_type = float_type
+
+    def insert_network(
+        self, network: IPSet, content: MMDBType, overwrite=True, python_type_id_map=None
+    ):
+        """
+        Inserts a network into the MaxMind database.
+
+        Args:
+           network (IPSet): The network to be inserted. It should be an instance of netaddr.IPSet.
+           content (MMDBType): The content associated with the network. It can be a dictionary, list, string, bytes, integer, or boolean.
+           overwrite (bool, optional): If True, existing network data will be overwritten. Defaults to True.
+           python_type_id_map: abc
+
+        Raises:
+           ValueError: If the network is not an instance of netaddr.IPSet.
+           ValueError: If an IPv6 address is inserted into an IPv4-only database.
+           ValueError: If an IPv4 address is inserted into an IPv6 database without setting ipv4_compatible=True.
+
+        Note:
+           This method modifies the internal tree structure of the MMDBWriter instance.
+        """
         leaf = SearchTreeLeaf(content)
         if not isinstance(network, IPSet):
             raise ValueError("network type should be netaddr.IPSet.")
         network = network.iter_cidrs()
         for cidr in network:
             if self.ip_version == 4 and cidr.version == 6:
-                raise ValueError('You inserted a IPv6 address {} '
-                                 'to an IPv4-only database.'.format(cidr))
+                raise ValueError(
+                    "You inserted a IPv6 address {} "
+                    "to an IPv4-only database.".format(cidr)
+                )
             if self.ip_version == 6 and cidr.version == 4:
                 if not self.ipv4_compatible:
-                    raise ValueError("You inserted a IPv4 address {} to an IPv6 database."
-                                     "Please use ipv4_compatible=True option store "
-                                     "IPv4 address in IPv6 database as ::/96 format".format(cidr))
+                    raise ValueError(
+                        "You inserted a IPv4 address {} to an IPv6 database."
+                        "Please use ipv4_compatible=True option store "
+                        "IPv4 address in IPv6 database as ::/96 format".format(cidr)
+                    )
                 cidr = cidr.ipv6(True)
             node = self.tree
             bits = list(bits_rstrip(cidr.value, self._bit_length, cidr.prefixlen))
             current_node = node
             supernet_leaf = None  # Tracks whether we are inserting into a subnet
-            for (index, ip_bit) in enumerate(bits[:-1]):
+            for index, ip_bit in enumerate(bits[:-1]):
                 previous_node = current_node
                 current_node = previous_node.get_or_create(ip_bit)
 
                 if isinstance(current_node, SearchTreeLeaf):
-                    current_cidr = IPNetwork((int(''.join(map(str, bits[:index + 1])).ljust(self._bit_length, '0'), 2), index + 1))
-                    logger.info(f"Inserting {cidr} ({content}) into subnet of {current_cidr} ({current_node.value})")
+                    current_cidr = IPNetwork(
+                        (
+                            int(
+                                "".join(map(str, bits[: index + 1])).ljust(
+                                    self._bit_length, "0"
+                                ),
+                                2,
+                            ),
+                            index + 1,
+                        )
+                    )
+                    logger.info(
+                        f"Inserting {cidr} ({content}) into subnet of {current_cidr} ({current_node.value})"
+                    )
                     supernet_leaf = current_node
                     current_node = SearchTreeNode()
                     previous_node[ip_bit] = current_node
@@ -449,7 +658,9 @@ class MMDBWriter(object):
             current_node[bits[-1]] = leaf
 
     def to_db_file(self, filename: str):
-        return TreeWriter(self.tree, self._build_meta()).write(filename)
+        return TreeWriter(
+            self.tree, self._build_meta(), self.int_type, self.float_type
+        ).write(filename)
 
     def _build_meta(self):
         return {
