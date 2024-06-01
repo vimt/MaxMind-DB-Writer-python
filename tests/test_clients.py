@@ -9,7 +9,7 @@ from pathlib import Path
 import maxminddb
 from netaddr.ip.sets import IPSet
 
-from mmdb_writer import MMDBWriter, MmdbBaseType, MmdbF32
+from mmdb_writer import MmdbBaseType, MmdbF32, MMDBWriter
 from tests.record import Record
 
 logging.basicConfig(

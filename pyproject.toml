@@ -1,0 +1,73 @@
+[build-system]
+requires = ["flit_core >=3.2,<4"]
+build-backend = "flit_core.buildapi"
+
+[project]
+name = "mmdb_writer"
+description = "Make `mmdb` format ip library file which can be read by maxmind official language reader"
+readme = "README.md"
+license = {file = "LICENSE"}
+requires-python = ">=3.6"
+keywords = ["mmdb", "maxmind"]
+authors = [{ name = "VimT", email = "me@vimt.me" } ]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Natural Language :: English",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3.6",
+    "Programming Language :: Python :: 3.7",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: Implementation :: CPython",
+    "Programming Language :: Python :: Implementation :: PyPy",
+    "Topic :: Software Development :: Build Tools",
+]
+dependencies = [
+    "netaddr>=0.7"
+]
+dynamic = ["version"]
+
+[project.optional-dependencies]
+test = [
+    "pytest >=2.7.3",
+    "pytest-cov",
+    "numpy",
+    "maxminddb>=1.5",
+]
+dev = [
+    "ruff"
+]
+
+[project.urls]
+Home = "https://github.com/vimt/MaxMind-DB-Writer-python"
+Source = "https://github.com/vimt/MaxMind-DB-Writer-python"
+Tracker = "https://github.com/vimt/MaxMind-DB-Writer-python/issues"
+
+[tool.flit.sdist]
+include = ["mmdb_writer.py"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+filterwarnings = [
+    "error",
+]
+
+[tool.ruff]
+fix = true
+show-fixes = true
+output-format = "full"
+
+[tool.ruff.lint]
+select = [
+    "B",  # flake8-bugbear
+    "E",  # pycodestyle error
+    "F",  # pyflakes
+    "I",  # isort
+    "UP",  # pyupgrade
+    "W",  # pycodestyle warning
+]

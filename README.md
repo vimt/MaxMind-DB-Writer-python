@@ -1,3 +1,13 @@
+- [MaxMind-DB-Writer-python](#maxmind-db-writer-python)
+    * [Install](#install)
+    * [Usage](#usage)
+    * [Examples](#examples)
+    * [Using the Java Client](#using-the-java-client)
+        + [TLDR](#tldr)
+        + [Underlying Principles](#underlying-principles)
+    * [Type Enforcement](#type-enforcement)
+    * [Reference:](#reference-)
+
 # MaxMind-DB-Writer-python
 
 Make `mmdb` format ip library file which can be read by [`maxmind` official language reader](https://dev.maxmind.com/geoip/geoip2/downloadable/)

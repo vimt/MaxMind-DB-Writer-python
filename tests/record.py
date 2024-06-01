@@ -3,15 +3,7 @@ from dataclasses import dataclass
 
 import numpy as np
 
-from mmdb_writer import (
-    MmdbI32,
-    MmdbF32,
-    MmdbF64,
-    MmdbU16,
-    MmdbU32,
-    MmdbU64,
-    MmdbU128,
-)
+from mmdb_writer import MmdbF32, MmdbF64, MmdbI32, MmdbU16, MmdbU32, MmdbU64, MmdbU128
 
 
 def random_str(length=10):
@@ -81,7 +73,7 @@ def random_any(nested_type=False):
 
 
 @dataclass
-class Record(object):
+class Record:
     i32: MmdbI32
     f32: MmdbF32
     f64: MmdbF64

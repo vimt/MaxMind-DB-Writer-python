@@ -1,4 +1,3 @@
-# coding: utf-8
 __version__ = "0.2.1"
 
 import logging
@@ -7,12 +6,12 @@ import struct
 import time
 from decimal import Decimal
 from enum import IntEnum
-from typing import Union, List, Dict, Literal
+from typing import Dict, List, Literal, Union
 
-from netaddr import IPSet, IPNetwork
+from netaddr import IPNetwork, IPSet
 
 
-class MmdbBaseType(object):
+class MmdbBaseType:
     def __init__(self, value):
         self.value = value
 
@@ -97,7 +96,7 @@ UINT32_MAX = 0xFFFFFFFF
 UINT64_MAX = 0xFFFFFFFFFFFFFFFF
 
 
-class SearchTreeNode(object):
+class SearchTreeNode:
     def __init__(self, left=None, right=None):
         self.left = left
         self.right = right
@@ -123,12 +122,12 @@ class SearchTreeNode(object):
             self.right = value
 
 
-class SearchTreeLeaf(object):
+class SearchTreeLeaf:
     def __init__(self, value):
         self.value = value
 
     def __repr__(self):
-        return "SearchTreeLeaf(value={value})".format(value=self.value)
+        return f"SearchTreeLeaf(value={self.value})"
 
     __str__ = __repr__
 
@@ -156,7 +155,7 @@ IntType = Union[
 FloatType = Union[Literal["f32", "f64", "float32", "float64"] | MmdbF32 | MmdbF64]
 
 
-class Encoder(object):
+class Encoder:
     def __init__(
         self, cache=True, int_type: IntType = "auto", float_type: FloatType = "f64"
     ):
@@ -224,7 +223,8 @@ class Encoder(object):
         def _encode_unsigned_value(value):
             if value < 0 or value >= value_max:
                 raise ValueError(
-                    f"encode uint{max_len * 8} fail: {value} not in range(0, {value_max})"
+                    f"encode uint{max_len * 8} fail: "
+                    f"{value} not in range(0, {value_max})"
                 )
             res = b""
             while value != 0 and len(res) < max_len:
@@ -353,7 +353,7 @@ class Encoder(object):
                 raise ValueError(f"unknown float_type={self.float_type}")
         elif value_type is Decimal:
             return MMDBTypeID.DOUBLE
-        raise TypeError("unknown type {value_type}".format(value_type=value_type))
+        raise TypeError(f"unknown type {value_type}")
 
     def encode_meta(self, meta):
         res = self._make_header(MMDBTypeID.MAP, len(meta))
@@ -383,8 +383,8 @@ class Encoder(object):
 
         try:
             encoder = self.type_encoder[type_id]
-        except KeyError:
-            raise ValueError("unknown type_id={type_id}".format(type_id=type_id))
+        except KeyError as err:
+            raise ValueError(f"unknown type_id={type_id}") from err
 
         if isinstance(value, MmdbBaseType):
             value = value.value
@@ -406,7 +406,7 @@ class Encoder(object):
         return res
 
 
-class TreeWriter(object):
+class TreeWriter:
     encoder_cls = Encoder
 
     def __init__(
@@ -541,7 +541,7 @@ def bits_rstrip(n, length=None, keep=0):
     return map(int, bin(n)[2:].rjust(length, "0")[:keep])
 
 
-class MMDBWriter(object):
+class MMDBWriter:
     def __init__(
         self,
         ip_version=4,
@@ -554,18 +554,20 @@ class MMDBWriter(object):
     ):
         """
         Args:
-            ip_version (int, optional): The IP version of the database. Defaults to 4.
-            database_type (str, optional): The type of the database. Defaults to "GeoIP".
-            languages (List[str], optional): A list of languages. Defaults to [].
-            description (Union[Dict[str, str], str], optional): A description of the database for every language.
-            ipv4_compatible (bool, optional): Whether the database is compatible with IPv4. Defaults to False.
-            int_type (Union[str, MmdbU16, MmdbU32, MmdbU64, MmdbU128, MmdbI32], optional): The type of integer to use. Defaults to "auto".
-            float_type (Union[str, MmdbF32, MmdbF64], optional): The type of float to use. Defaults to "f64".
+            ip_version: The IP version of the database. Defaults to 4.
+            database_type: The type of the database. Defaults to "GeoIP".
+            languages: A list of languages. Defaults to [].
+            description: A description of the database for every language.
+            ipv4_compatible: Whether the database is compatible with IPv4.
+            int_type: The type of integer to use. Defaults to "auto".
+            float_type: The type of float to use. Defaults to "f64".
 
         Note:
-            If you want to store an IPv4 address in an IPv6 database, you should set ipv4_compatible=True.
+            If you want to store an IPv4 address in an IPv6 database, you should set
+            ipv4_compatible=True.
 
-            If you want to use a specific integer type, you can set int_type to "u16", "u32", "u64", "u128", or "i32".
+            If you want to use a specific integer type, you can set int_type to
+            "u16", "u32", "u64", "u128", or "i32".
         """
         self.tree = SearchTreeNode()
         self.ipv4_compatible = ipv4_compatible
@@ -582,16 +584,12 @@ class MMDBWriter(object):
         self._bit_length = 128 if ip_version == 6 else 32
 
         if ip_version not in [4, 6]:
-            raise ValueError(
-                "ip_version should be 4 or 6, {} is incorrect".format(ip_version)
-            )
+            raise ValueError(f"ip_version should be 4 or 6, {ip_version} is incorrect")
         if ip_version == 4 and ipv4_compatible:
             raise ValueError("ipv4_compatible=True can set when ip_version=6")
         if not self.binary_format_major_version:
             raise ValueError(
-                "major_version can't be empty or 0: {}".format(
-                    self.binary_format_major_version
-                )
+                f"major_version can't be empty or 0: {self.binary_format_major_version}"
             )
         if isinstance(description, str):
             self.description = {i: description for i in languages}
@@ -602,22 +600,22 @@ class MMDBWriter(object):
         self.int_type = int_type
         self.float_type = float_type
 
-    def insert_network(
-        self, network: IPSet, content: MMDBType, overwrite=True, python_type_id_map=None
-    ):
+    def insert_network(self, network: IPSet, content: MMDBType):
         """
         Inserts a network into the MaxMind database.
 
         Args:
-           network (IPSet): The network to be inserted. It should be an instance of netaddr.IPSet.
-           content (MMDBType): The content associated with the network. It can be a dictionary, list, string, bytes, integer, or boolean.
-           overwrite (bool, optional): If True, existing network data will be overwritten. Defaults to True.
-           python_type_id_map: abc
+           network: The network to be inserted. It should be an instance of
+                    netaddr.IPSet.
+           content: The content associated with the network. It can be a
+                    dictionary, list, string, bytes, integer, or boolean.
+
 
         Raises:
            ValueError: If the network is not an instance of netaddr.IPSet.
            ValueError: If an IPv6 address is inserted into an IPv4-only database.
-           ValueError: If an IPv4 address is inserted into an IPv6 database without setting ipv4_compatible=True.
+           ValueError: If an IPv4 address is inserted into an IPv6 database without
+                       setting ipv4_compatible=True.
 
         Note:
            This method modifies the internal tree structure of the MMDBWriter instance.
@@ -629,15 +627,14 @@ class MMDBWriter(object):
         for cidr in network:
             if self.ip_version == 4 and cidr.version == 6:
                 raise ValueError(
-                    "You inserted a IPv6 address {} "
-                    "to an IPv4-only database.".format(cidr)
+                    f"You inserted a IPv6 address {cidr} " "to an IPv4-only database."
                 )
             if self.ip_version == 6 and cidr.version == 4:
                 if not self.ipv4_compatible:
                     raise ValueError(
-                        "You inserted a IPv4 address {} to an IPv6 database."
+                        f"You inserted a IPv4 address {cidr} to an IPv6 database."
                         "Please use ipv4_compatible=True option store "
-                        "IPv4 address in IPv6 database as ::/96 format".format(cidr)
+                        "IPv4 address in IPv6 database as ::/96 format"
                     )
                 cidr = cidr.ipv6(True)
             node = self.tree
@@ -661,7 +658,8 @@ class MMDBWriter(object):
                         )
                     )
                     logger.info(
-                        f"Inserting {cidr} ({content}) into subnet of {current_cidr} ({current_node.value})"
+                        f"Inserting {cidr} ({content}) into subnet of "
+                        f"{current_cidr} ({current_node.value})"
                     )
                     supernet_leaf = current_node
                     current_node = SearchTreeNode()
@@ -669,7 +667,8 @@ class MMDBWriter(object):
 
                 if supernet_leaf:
                     next_bit = bits[index + 1]
-                    # Insert supernet information on each inverse bit of the current subnet
+                    # Insert supernet information on each inverse bit of
+                    # the current subnet
                     current_node[1 - next_bit] = supernet_leaf
             current_node[bits[-1]] = leaf
 

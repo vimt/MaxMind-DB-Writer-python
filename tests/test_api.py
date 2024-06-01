@@ -1,4 +1,3 @@
-# coding: utf-8
 import logging
 import os.path
 import random
@@ -8,7 +7,7 @@ import unittest
 import maxminddb
 from netaddr import IPSet
 
-from mmdb_writer import MMDBWriter, MmdbI32, MmdbU16, MmdbU32, MmdbU64, MmdbU128
+from mmdb_writer import MmdbI32, MmdbU16, MmdbU32, MmdbU64, MmdbU128, MMDBWriter
 
 logging.basicConfig(
     format="[%(asctime)s: %(levelname)s] %(message)s", level=logging.INFO

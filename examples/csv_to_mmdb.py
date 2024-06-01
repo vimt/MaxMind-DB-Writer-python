@@ -1,4 +1,3 @@
-# coding: utf-8
 import csv
 from collections import defaultdict
 
@@ -14,7 +13,7 @@ def main():
     data = defaultdict(list)
 
     # merge cidr
-    with open("fake_ip_info.csv", "r") as f:
+    with open("fake_ip_info.csv") as f:
         reader = csv.DictReader(f)
         for line in reader:
             data[(line["country"], line["isp"])].append(
