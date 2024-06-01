@@ -28,7 +28,7 @@ setup(
     zip_safe=False,
     python_requires=">=3.6",
     install_requires=["netaddr>=0.7"],
-    tests_require=["maxminddb>=1.5", "numpy"],
+    tests_require=["maxminddb>=1.5", "numpy", "pytest"],
     classifiers=[
         "Development Status :: 5 - Production/Stable",
         "Programming Language :: Python",

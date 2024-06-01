@@ -8,8 +8,7 @@ import unittest
 import maxminddb
 from netaddr import IPSet
 
-from mmdb_writer import MMDBWriter
-from tests.record import Record
+from mmdb_writer import MMDBWriter, MmdbI32, MmdbU16, MmdbU32, MmdbU64, MmdbU128
 
 logging.basicConfig(
     format="[%(asctime)s: %(levelname)s] %(message)s", level=logging.INFO
@@ -71,20 +70,24 @@ class TestBuild(unittest.TestCase):
             m.close()
 
     def test_int_type(self):
-        value_range_map = {
-            "i32": (-(2 ** 31), 2 ** 31 - 1),
-            "u16": (0, 2 ** 16 - 1),
-            "u32": (0, 2 ** 32 - 1),
-            "u64": (0, 2 ** 64 - 1),
-            "u128": (0, 2 ** 128 - 1),
-        }
-        for int_type in ("i32", "u16", "u32", "u64", "u128"):
+        value_range_map = {}
+        value_range_map.update(
+            {k: (-(2**31), 2**31 - 1) for k in ("i32", "int32", MmdbI32)}
+        )
+        value_range_map.update({k: (0, 2**16 - 1) for k in ("u16", "uint16", MmdbU16)})
+        value_range_map.update({k: (0, 2**32 - 1) for k in ("u32", "uint32", MmdbU32)})
+        value_range_map.update({k: (0, 2**64 - 1) for k in ("u64", "uint64", MmdbU64)})
+        value_range_map.update(
+            {k: (0, 2**128 - 1) for k in ("u128", "uint128", MmdbU128)}
+        )
+
+        for int_type, value_range in value_range_map.items():
             writer = MMDBWriter(int_type=int_type)
 
-            (start, end) = value_range_map[int_type]
+            (start, end) = value_range
             ok_value = random.randint(start, end)
-            bad_value1 = random.randint(end + 1, end + 2 ** 16)
-            bad_value2 = random.randint(start - 2 ** 16, start - 1)
+            bad_value1 = random.randint(end + 1, end + 2**16)
+            bad_value2 = random.randint(start - 2**16, start - 1)
             writer.insert_network(IPSet(["1.0.0.0/8"]), {"value": ok_value})
             writer.to_db_file(self.filename)
             for bad_value in (bad_value1, bad_value2):

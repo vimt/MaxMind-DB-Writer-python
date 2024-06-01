@@ -134,14 +134,26 @@ class SearchTreeLeaf(object):
 
 
 IntType = Union[
-    Literal["auto", "u16", "u32", "u64", "u128", "i32"]
+    Literal[
+        "auto",
+        "u16",
+        "u32",
+        "u64",
+        "u128",
+        "i32",
+        "uint16",
+        "uint32",
+        "uint64",
+        "uint128",
+        "int32",
+    ]
     | MmdbU16
     | MmdbU32
     | MmdbU64
     | MmdbU128
     | MmdbI32
 ]
-FloatType = Union[Literal["f32", "f64"] | MmdbF32 | MmdbF64]
+FloatType = Union[Literal["f32", "f64", "float32", "float64"] | MmdbF32 | MmdbF64]
 
 
 class Encoder(object):
@@ -320,21 +332,25 @@ class Encoder(object):
                     return MMDBTypeID.INT32
                 else:
                     return MMDBTypeID.UINT16
-            elif self.int_type in ("u16", MmdbU16):
+            elif self.int_type in ("u16", "uint16", MmdbU16):
                 return MMDBTypeID.UINT16
-            elif self.int_type in ("u32", MmdbU32):
+            elif self.int_type in ("u32", "uint32", MmdbU32):
                 return MMDBTypeID.UINT32
-            elif self.int_type in ("u64", MmdbU64):
+            elif self.int_type in ("u64", "uint64", MmdbU64):
                 return MMDBTypeID.UINT64
-            elif self.int_type in ("u128", MmdbU128):
+            elif self.int_type in ("u128", "uint128", MmdbU128):
                 return MMDBTypeID.UINT128
-            elif self.int_type in ("i32", MmdbI32):
+            elif self.int_type in ("i32", "int32", MmdbI32):
                 return MMDBTypeID.INT32
-        elif value_type is float:
-            if self.float_type in ("f32", MmdbF32):
-                return MMDBTypeID.FLOAT
             else:
+                raise ValueError(f"unknown int_type={self.int_type}")
+        elif value_type is float:
+            if self.float_type in ("f32", "float32", MmdbF32):
+                return MMDBTypeID.FLOAT
+            elif self.float_type in ("f64", "float64", MmdbF64):
                 return MMDBTypeID.DOUBLE
+            else:
+                raise ValueError(f"unknown float_type={self.float_type}")
         elif value_type is Decimal:
             return MMDBTypeID.DOUBLE
         raise TypeError("unknown type {value_type}".format(value_type=value_type))
@@ -394,11 +410,11 @@ class TreeWriter(object):
     encoder_cls = Encoder
 
     def __init__(
-            self,
-            tree: "SearchTreeNode",
-            meta: dict,
-            int_type: IntType = "auto",
-            float_type: FloatType = "f64",
+        self,
+        tree: "SearchTreeNode",
+        meta: dict,
+        int_type: IntType = "auto",
+        float_type: FloatType = "f64",
     ):
         self._node_idx = {}
         self._leaf_offset = {}

@@ -11,7 +11,6 @@ from mmdb_writer import (
     MmdbU32,
     MmdbU64,
     MmdbU128,
-    MmdbBaseType,
 )
 
 

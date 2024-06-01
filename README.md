@@ -37,7 +37,7 @@ When generating an MMDB file for use with the Java client, you must specify the 
 ```python
 from mmdb_writer import MMDBWriter
 
-writer = MMDBWriter(int_type='int32')
+writer = MMDBWriter(int_type='i32')
 ```
 
 Alternatively, you can explicitly specify data types using the [Type Enforcement](#type-enforcement) section.
