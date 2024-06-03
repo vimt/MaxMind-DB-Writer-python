@@ -11,7 +11,7 @@ permissions:
 
 jobs:
   test:
-    name: ${{ matrix.name || matrix.python }}
+    name: ci ${{ matrix.python }}
     runs-on: ubuntu-latest
     strategy:
       matrix:
@@ -39,8 +39,8 @@ jobs:
         sudo apt install libmaxminddb0 libmaxminddb-dev
         python -m pip install --upgrade pip
         pip install tox
-    - name: test
+    - name: Test
       run: tox -e py
-    - name: lint
+    - name: Lint
       if: matrix.python-version == '3.12'
       run: tox -e lint
