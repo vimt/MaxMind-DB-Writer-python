@@ -11,7 +11,7 @@ permissions:
 
 jobs:
   test:
-    name: ci ${{ matrix.python }}
+    name: ci ${{ matrix.python-version }}
     runs-on: ubuntu-latest
     strategy:
       matrix:
