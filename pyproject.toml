@@ -7,7 +7,7 @@ name = "mmdb_writer"
 description = "Make `mmdb` format ip library file which can be read by maxmind official language reader"
 readme = "README.md"
 license = {file = "LICENSE"}
-requires-python = ">=3.6"
+requires-python = ">=3.8"
 keywords = ["mmdb", "maxmind"]
 authors = [{ name = "VimT", email = "me@vimt.me" } ]
 classifiers = [
@@ -16,8 +16,9 @@ classifiers = [
     "License :: OSI Approved :: MIT License",
     "Natural Language :: English",
     "Operating System :: OS Independent",
-    "Programming Language :: Python :: 3.6",
-    "Programming Language :: Python :: 3.7",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
     "Programming Language :: Python :: 3.8",
     "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",

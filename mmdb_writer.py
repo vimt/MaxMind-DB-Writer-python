@@ -1,4 +1,4 @@
-__version__ = "0.2.1"
+__version__ = "0.2.2"
 
 import logging
 import math
@@ -23,7 +23,7 @@ class MmdbF32(MmdbBaseType):
 
 
 class MmdbF64(MmdbBaseType):
-    def __init__(self, value: Union[float | Decimal]):
+    def __init__(self, value: Union[float, Decimal]):
         super().__init__(value)
 
 
@@ -145,14 +145,14 @@ IntType = Union[
         "uint64",
         "uint128",
         "int32",
-    ]
-    | MmdbU16
-    | MmdbU32
-    | MmdbU64
-    | MmdbU128
-    | MmdbI32
+    ],
+    MmdbU16,
+    MmdbU32,
+    MmdbU64,
+    MmdbU128,
+    MmdbI32,
 ]
-FloatType = Union[Literal["f32", "f64", "float32", "float64"] | MmdbF32 | MmdbF64]
+FloatType = Union[Literal["f32", "f64", "float32", "float64"], MmdbF32, MmdbF64]
 
 
 class Encoder:
@@ -547,7 +547,7 @@ class MMDBWriter:
         ip_version=4,
         database_type="GeoIP",
         languages: List[str] = None,
-        description: Union[Dict[str, str] | str] = "GeoIP db",
+        description: Union[Dict[str, str], str] = "GeoIP db",
         ipv4_compatible=False,
         int_type: IntType = "auto",
         float_type: FloatType = "f64",

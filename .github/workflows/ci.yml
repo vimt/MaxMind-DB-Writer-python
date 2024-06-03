@@ -1,0 +1,48 @@
+name: CI
+
+on:
+  push:
+    branches: [ "master", "ci/*" ]
+  pull_request:
+    branches: [ "master" ]
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: ci ${{ matrix.python-version }}
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: [ "3.8", "3.9", "3.10", "3.11", "3.12" ]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Go environment
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.22'
+          cache-dependency-path: tests/clients/go/go.sum
+      - name: Setup Java JDK
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 22
+          cache: maven
+          cache-dependency-path: tests/clients/java/pom.xml
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          allow-prereleases: true
+          check-latest: true
+      - name: Install dependencies
+        run: |
+          sudo apt install libmaxminddb0 libmaxminddb-dev
+          python -m pip install --upgrade pip
+          pip install tox
+      - name: Test
+        run: tox -e py
+      - name: Lint
+        if: matrix.python-version == '3.12'
+        run: tox -e lint
