@@ -12,10 +12,18 @@
 
 Make `mmdb` format ip library file which can be read by [`maxmind` official language reader](https://dev.maxmind.com/geoip/geoip2/downloadable/)
 
-[The official perl writer](https://github.com/maxmind/MaxMind-DB-Writer-perl) was written in perl, which was difficult to customize. So I implemented the `MaxmindDB format` ip library in python language
+~~[The official perl writer](https://github.com/maxmind/MaxMind-DB-Writer-perl) was written in perl, 
+which was difficult to customize. 
+So I implemented the `MaxmindDB format` ip library in python language.~~
+
+MaxMind has now released an official Go version of the MMDB writer. 
+If you prefer using Go, you can check out the official Go implementation [mmdbwriter](https://github.com/maxmind/mmdbwriter). 
+This project still provides a Python alternative for those who need it.
+
 ## Install
+
 ```shell script
-pip install -U git+https://github.com/VimT/MaxMind-DB-Writer-python
+pip install -U mmdb_writer
 ```
 
 ## Usage
