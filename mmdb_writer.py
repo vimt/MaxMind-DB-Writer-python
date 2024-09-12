@@ -1,4 +1,4 @@
-__version__ = "0.2.2"
+__version__ = "0.2.3"
 
 import logging
 import math
@@ -7,7 +7,6 @@ import time
 from decimal import Decimal
 from enum import IntEnum
 from typing import Dict, List, Literal, Union
-from weakref import WeakKeyDictionary
 
 from netaddr import IPNetwork, IPSet
 
