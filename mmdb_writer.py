@@ -357,7 +357,7 @@ class Encoder:
 
     def _freeze(self, value):
         if isinstance(value, dict):
-            return tuple((k, self._freeze(v)) for k, v in sorted(value.items()))
+            return tuple((k, self._freeze(v)) for k, v in value.items())
         elif isinstance(value, list):
             return tuple(self._freeze(v) for v in value)
         return value
