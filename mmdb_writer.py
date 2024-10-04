@@ -6,7 +6,7 @@ import struct
 import time
 from decimal import Decimal
 from enum import IntEnum
-from typing import Dict, List, Literal, Union, TypeAlias
+from typing import Dict, List, Literal, Union
 
 from netaddr import IPNetwork, IPSet
 
@@ -52,7 +52,7 @@ class MmdbU128(MmdbBaseType):
         super().__init__(value)
 
 
-MMDBType: TypeAlias = Union[
+MMDBType = Union[
     dict,
     list,
     str,
