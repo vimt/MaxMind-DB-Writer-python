@@ -378,11 +378,12 @@ class Encoder:
             res += self.encode(v, meta_type.get(k))
         return res
 
-    def encode(self, value, type_id=None):
+    def encode(self, value, type_id=None, return_offset=False):
         if self.cache:
             cache_key = self._freeze(value)
             try:
-                return self.data_cache[cache_key]
+                offset = self.data_cache[cache_key]
+                return offset if return_offset else self._encode_pointer(offset)
             except KeyError:
                 pass
 
@@ -399,18 +400,11 @@ class Encoder:
         res = encoder(value)
 
         if self.cache:
-            # add to cache
-            if type_id == 1:
-                self.data_list.append(res)
-                self.data_pointer += len(res)
-                return res
-            else:
-                self.data_list.append(res)
-                pointer_position = self.data_pointer
-                self.data_pointer += len(res)
-                pointer = self.encode(pointer_position, 1)
-                self.data_cache[cache_key] = pointer
-                return pointer
+            self.data_list.append(res)
+            offset = self.data_pointer
+            self.data_pointer += len(res)
+            self.data_cache[cache_key] = offset
+            return offset if return_offset else self._encode_pointer(offset)
         return res
 
 
@@ -484,8 +478,8 @@ class TreeWriter:
         elif type(node) is SearchTreeLeaf:
             node_id = id(node)
             if node_id not in self._leaf_offset:
-                res = self.encoder.encode(node.value)
-                self._leaf_offset[node_id] = self._data_pointer - len(res)
+                offset = self.encoder.encode(node.value, return_offset=True)
+                self._leaf_offset[node_id] = offset + 16
         else:  # == None
             return
 
