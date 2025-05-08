@@ -15,6 +15,14 @@ use std::fs::File;
 fn mmdb_writer(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<PyMmdbWriter>()?;
     m.add_class::<PyMmdbValue>()?;
+    
+    // 导出数值类型别名
+    m.add_class::<MmdbI32>()?;
+    m.add_class::<MmdbU16>()?;
+    m.add_class::<MmdbU32>()?;
+    m.add_class::<MmdbU64>()?;
+    m.add_class::<MmdbU128>()?;
+    
     Ok(())
 }
 
@@ -156,7 +164,7 @@ impl PyMmdbWriter {
         })
     }
 
-    fn to_file(&self, filename: &str) -> PyResult<()> {
+    fn to_file(&mut self, filename: &str) -> PyResult<()> {
         let mut file = File::create(filename)?;
         self.inner.build(&mut file);
         Ok(())
@@ -258,3 +266,23 @@ impl PyMmdbWriter {
         }
     }
 }
+
+#[pyclass(name = "MmdbI32")]
+#[derive(Clone, Copy)]
+pub struct MmdbI32;
+
+#[pyclass(name = "MmdbU16")]
+#[derive(Clone, Copy)]
+pub struct MmdbU16;
+
+#[pyclass(name = "MmdbU32")]
+#[derive(Clone, Copy)]
+pub struct MmdbU32;
+
+#[pyclass(name = "MmdbU64")]
+#[derive(Clone, Copy)]
+pub struct MmdbU64;
+
+#[pyclass(name = "MmdbU128")]
+#[derive(Clone, Copy)]
+pub struct MmdbU128;
