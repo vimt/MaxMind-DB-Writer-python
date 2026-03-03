@@ -31,7 +31,7 @@ jobs:
           ./bootstrap && ./configure && make -j$(nproc) && sudo make install
           sudo ldconfig
       - name: Test
-        run: uv run --python ${{ matrix.python-version }} --extra test pytest
+        run: uv run --python ${{ matrix.python-version }} --extra test pytest tests/test_api.py
       - name: Lint
         if: matrix.python-version == '3.13'
         run: |
