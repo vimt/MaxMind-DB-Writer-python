@@ -686,6 +686,6 @@ class MMDBWriter:
             "languages": self.languages,
             "binary_format_major_version": self.binary_format_major_version,
             "binary_format_minor_version": self.binary_format_minor_version,
-            "build_epoch": int(time.time()),
             "description": self.description,
+            "build_epoch": int(time.time()),
         }

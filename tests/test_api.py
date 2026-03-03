@@ -68,6 +68,33 @@ class TestBuild(unittest.TestCase):
             self.assertEqual(record2, m.get("1.10.10.1"), mode)
             m.close()
 
+    def test_empty_description(self):
+        """Regression test for https://github.com/vimt/MaxMind-DB-Writer-python/issues/16
+        libmaxminddb v1.13.x added stricter validation that rejects files where an
+        empty map/array is the last element in the metadata section.
+        """
+        writer = MMDBWriter()
+        writer.insert_network(
+            IPSet(["1.1.0.0/24", "1.1.1.0/24"]),
+            {"country": "COUNTRY", "isp": "ISP"},
+        )
+        writer.to_db_file(self.filename)
+        for mode in (maxminddb.MODE_MMAP_EXT, maxminddb.MODE_MMAP, maxminddb.MODE_FILE):
+            m = maxminddb.open_database(self.filename, mode=mode)
+            self.assertEqual({"country": "COUNTRY", "isp": "ISP"}, m.get("1.1.0.0"), mode)
+            self.assertEqual({"country": "COUNTRY", "isp": "ISP"}, m.get("1.1.1.0"), mode)
+            m.close()
+
+    def test_empty_languages(self):
+        """Ensure empty languages array doesn't cause issues with strict validation."""
+        writer = MMDBWriter(languages=[])
+        writer.insert_network(IPSet(["10.0.0.0/8"]), {"value": "test"})
+        writer.to_db_file(self.filename)
+        for mode in (maxminddb.MODE_MMAP_EXT, maxminddb.MODE_MMAP, maxminddb.MODE_FILE):
+            m = maxminddb.open_database(self.filename, mode=mode)
+            self.assertEqual({"value": "test"}, m.get("10.0.0.1"), mode)
+            m.close()
+
     def test_int_type(self):
         value_range_map = {}
         value_range_map.update(
