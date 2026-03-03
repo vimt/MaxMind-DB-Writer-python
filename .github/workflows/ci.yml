@@ -11,11 +11,12 @@ permissions:
 
 jobs:
   test:
-    name: ci ${{ matrix.python-version }}
+    name: test py${{ matrix.python-version }}
     runs-on: ubuntu-latest
     strategy:
+      fail-fast: false
       matrix:
-        python-version: [ "3.8", "3.9", "3.10", "3.11", "3.12" ]
+        python-version: [ "3.9", "3.10", "3.11", "3.12", "3.13" ]
     steps:
       - uses: actions/checkout@v4
       - name: Setup Go environment
@@ -36,13 +37,20 @@ jobs:
           python-version: ${{ matrix.python-version }}
           allow-prereleases: true
           check-latest: true
+      - name: Install libmaxminddb from source
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential autoconf automake libtool
+          git clone --depth 1 --branch 1.13.2 https://github.com/maxmind/libmaxminddb.git /tmp/libmaxminddb
+          cd /tmp/libmaxminddb
+          ./bootstrap && ./configure && make -j$(nproc) && sudo make install
+          sudo ldconfig
       - name: Install dependencies
         run: |
-          sudo apt install libmaxminddb0 libmaxminddb-dev
           python -m pip install --upgrade pip
           pip install tox
       - name: Test
         run: tox -e py
       - name: Lint
-        if: matrix.python-version == '3.12'
+        if: matrix.python-version == '3.13'
         run: tox -e lint
