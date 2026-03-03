@@ -7,7 +7,7 @@ name = "mmdb_writer"
 description = "Make `mmdb` format ip library file which can be read by maxmind official language reader"
 readme = "README.md"
 license = {file = "LICENSE"}
-requires-python = ">=3.8"
+requires-python = ">=3.9"
 keywords = ["mmdb", "maxmind"]
 authors = [{ name = "VimT", email = "me@vimt.me" } ]
 classifiers = [
@@ -19,11 +19,11 @@ classifiers = [
     "Programming Language :: Python",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3 :: Only",
-    "Programming Language :: Python :: 3.8",
     "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
     "Programming Language :: Python :: Implementation :: CPython",
     "Programming Language :: Python :: Implementation :: PyPy",
     "Topic :: Software Development :: Build Tools",
@@ -41,7 +41,7 @@ test = [
     "maxminddb>=1.5",
 ]
 dev = [
-    "ruff"
+    "ruff",
 ]
 
 [project.urls]
@@ -59,9 +59,8 @@ filterwarnings = [
 ]
 
 [tool.ruff]
-fix = true
-show-fixes = true
-output-format = "full"
+line-length = 88
+target-version = "py39"
 
 [tool.ruff.lint]
 select = [
@@ -72,3 +71,6 @@ select = [
     "UP",  # pyupgrade
     "W",  # pycodestyle warning
 ]
+
+[tool.ruff.format]
+quote-style = "double"

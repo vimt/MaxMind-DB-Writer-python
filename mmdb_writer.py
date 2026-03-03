@@ -6,7 +6,7 @@ import struct
 import time
 from decimal import Decimal
 from enum import IntEnum
-from typing import Dict, List, Literal, Union
+from typing import Literal, Union
 
 from netaddr import IPNetwork, IPSet
 
@@ -548,8 +548,8 @@ class MMDBWriter:
         self,
         ip_version=4,
         database_type="GeoIP",
-        languages: List[str] = None,
-        description: Union[Dict[str, str], str] = "GeoIP db",
+        languages: list[str] = None,
+        description: Union[dict[str, str], str] = "GeoIP db",
         ipv4_compatible=False,
         int_type: IntType = "auto",
         float_type: FloatType = "f64",
@@ -629,7 +629,7 @@ class MMDBWriter:
         for cidr in network:
             if self.ip_version == 4 and cidr.version == 6:
                 raise ValueError(
-                    f"You inserted a IPv6 address {cidr} " "to an IPv4-only database."
+                    f"You inserted a IPv6 address {cidr} to an IPv4-only database."
                 )
             if self.ip_version == 6 and cidr.version == 4:
                 if not self.ipv4_compatible:
