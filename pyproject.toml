@@ -1,6 +1,6 @@
 [build-system]
-requires = ["flit_core >=3.2,<4"]
-build-backend = "flit_core.buildapi"
+requires = ["maturin>=1.0,<2.0"]
+build-backend = "maturin"
 
 [project]
 name = "mmdb_writer"
@@ -28,10 +28,11 @@ classifiers = [
     "Programming Language :: Python :: Implementation :: PyPy",
     "Topic :: Software Development :: Build Tools",
 ]
-dependencies = [
-    "netaddr>=0.7"
-]
+dependencies = []
 dynamic = ["version"]
+
+[tool.maturin]
+features = ["pyo3/extension-module"]
 
 [project.optional-dependencies]
 test = [
