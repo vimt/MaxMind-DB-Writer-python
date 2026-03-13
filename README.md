@@ -22,6 +22,17 @@ If you prefer using Go, you can check out the official Go
 implementation [mmdbwriter](https://github.com/maxmind/mmdbwriter).
 This project still provides a Python alternative for those who need it.
 
+> **Looking for better performance?**
+> The [`feature/rust`](https://github.com/vimt/MaxMind-DB-Writer-python/tree/feature/rust)
+> branch is a **beta** Rust rewrite via PyO3. It uses a simplified API (no `netaddr` dependency)
+> and is **6–8× faster** overall, with insert speeds up to **5× faster** than this pure-Python version.
+>
+> Install the beta directly from GitHub:
+> ```shell
+> pip install "git+https://github.com/vimt/MaxMind-DB-Writer-python.git@feature/rust"
+> ```
+> Note: the beta requires a Rust toolchain to build from source, or pre-built wheels when available.
+
 ## Install
 
 ```shell script
