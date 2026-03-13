@@ -1,0 +1,55 @@
+name: Publish to PyPI
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: test py${{ matrix.python-version }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: [ "3.12", "3.13" ]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install uv
+        uses: astral-sh/setup-uv@v6
+      - name: Set up Python
+        run: uv python install ${{ matrix.python-version }}
+      - name: Install libmaxminddb from source
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential autoconf automake libtool
+          git clone --depth 1 https://github.com/maxmind/libmaxminddb.git /tmp/libmaxminddb
+          cd /tmp/libmaxminddb
+          ./bootstrap && ./configure && make -j$(nproc) && sudo make install
+          sudo ldconfig
+      - name: Test
+        run: uv run --python ${{ matrix.python-version }} --extra test pytest tests/test_api.py
+      - name: Lint
+        if: matrix.python-version == '3.13'
+        run: |
+          uv run --python ${{ matrix.python-version }} --extra dev ruff check --no-fix
+          uv run --python ${{ matrix.python-version }} --extra dev ruff format --check
+
+  publish:
+    name: Publish to PyPI
+    needs: test
+    runs-on: ubuntu-latest
+    environment: release
+    permissions:
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install uv
+        uses: astral-sh/setup-uv@v6
+      - name: Build package
+        run: uv build
+      - name: Publish to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1

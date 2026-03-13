@@ -1,4 +1,4 @@
-__version__ = "0.2.2"
+__version__ = "0.2.6"
 
 import logging
 import math
@@ -6,7 +6,7 @@ import struct
 import time
 from decimal import Decimal
 from enum import IntEnum
-from typing import Dict, List, Literal, Union
+from typing import Literal, Union
 
 from netaddr import IPNetwork, IPSet
 
@@ -355,6 +355,13 @@ class Encoder:
             return MMDBTypeID.DOUBLE
         raise TypeError(f"unknown type {value_type}")
 
+    def _freeze(self, value):
+        if isinstance(value, dict):
+            return tuple((k, self._freeze(v)) for k, v in value.items())
+        elif isinstance(value, list):
+            return tuple(self._freeze(v) for v in value)
+        return value
+
     def encode_meta(self, meta):
         res = self._make_header(MMDBTypeID.MAP, len(meta))
         meta_type = {
@@ -371,10 +378,12 @@ class Encoder:
             res += self.encode(v, meta_type.get(k))
         return res
 
-    def encode(self, value, type_id=None):
+    def encode(self, value, type_id=None, return_offset=False):
         if self.cache:
+            cache_key = self._freeze(value)
             try:
-                return self.data_cache[id(value)]
+                offset = self.data_cache[cache_key]
+                return offset if return_offset else self._encode_pointer(offset)
             except KeyError:
                 pass
 
@@ -391,18 +400,11 @@ class Encoder:
         res = encoder(value)
 
         if self.cache:
-            # add to cache
-            if type_id == 1:
-                self.data_list.append(res)
-                self.data_pointer += len(res)
-                return res
-            else:
-                self.data_list.append(res)
-                pointer_position = self.data_pointer
-                self.data_pointer += len(res)
-                pointer = self.encode(pointer_position, 1)
-                self.data_cache[id(value)] = pointer
-                return pointer
+            self.data_list.append(res)
+            offset = self.data_pointer
+            self.data_pointer += len(res)
+            self.data_cache[cache_key] = offset
+            return offset if return_offset else self._encode_pointer(offset)
         return res
 
 
@@ -476,8 +478,8 @@ class TreeWriter:
         elif type(node) is SearchTreeLeaf:
             node_id = id(node)
             if node_id not in self._leaf_offset:
-                res = self.encoder.encode(node.value)
-                self._leaf_offset[node_id] = self._data_pointer - len(res)
+                offset = self.encoder.encode(node.value, return_offset=True)
+                self._leaf_offset[node_id] = offset + 16
         else:  # == None
             return
 
@@ -546,8 +548,8 @@ class MMDBWriter:
         self,
         ip_version=4,
         database_type="GeoIP",
-        languages: List[str] = None,
-        description: Union[Dict[str, str], str] = "GeoIP db",
+        languages: list[str] = None,
+        description: Union[dict[str, str], str] = "GeoIP db",
         ipv4_compatible=False,
         int_type: IntType = "auto",
         float_type: FloatType = "f64",
@@ -627,7 +629,7 @@ class MMDBWriter:
         for cidr in network:
             if self.ip_version == 4 and cidr.version == 6:
                 raise ValueError(
-                    f"You inserted a IPv6 address {cidr} " "to an IPv4-only database."
+                    f"You inserted a IPv6 address {cidr} to an IPv4-only database."
                 )
             if self.ip_version == 6 and cidr.version == 4:
                 if not self.ipv4_compatible:
@@ -684,6 +686,6 @@ class MMDBWriter:
             "languages": self.languages,
             "binary_format_major_version": self.binary_format_major_version,
             "binary_format_minor_version": self.binary_format_minor_version,
-            "build_epoch": int(time.time()),
             "description": self.description,
+            "build_epoch": int(time.time()),
         }

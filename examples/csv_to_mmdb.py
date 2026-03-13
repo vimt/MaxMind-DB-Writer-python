@@ -17,7 +17,7 @@ def main():
         reader = csv.DictReader(f)
         for line in reader:
             data[(line["country"], line["isp"])].append(
-                IPNetwork(f'{line["ip"]}/{line["prefixlen"]}')
+                IPNetwork(f"{line['ip']}/{line['prefixlen']}")
             )
     for index, cidrs in data.items():
         writer.insert_network(IPSet(cidrs), {"country": index[0], "isp": index[1]})

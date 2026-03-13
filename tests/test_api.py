@@ -5,7 +5,6 @@ import struct
 import unittest
 
 import maxminddb
-from netaddr import IPSet
 
 from mmdb_writer import MmdbI32, MmdbU16, MmdbU32, MmdbU64, MmdbU128, MmdbWriter as MMDBWriter
 
@@ -66,6 +65,34 @@ class TestBuild(unittest.TestCase):
             self.assertEqual(record1, m.get("1.1.0.1"), mode)
             self.assertEqual(record1, m.get("1.10.0.1"), mode)
             self.assertEqual(record2, m.get("1.10.10.1"), mode)
+            m.close()
+
+    def test_empty_description(self):
+        """Regression test for #16: libmaxminddb v1.13.x rejects files
+        where an empty map/array is the last element in metadata."""
+        writer = MMDBWriter()
+        expected = {"country": "COUNTRY", "isp": "ISP"}
+        writer.insert_network("1.1.0.0/24", expected)
+        writer.insert_network("1.1.1.0/24", expected)
+        writer.to_file(self.filename)
+        for mode in (
+            maxminddb.MODE_MMAP_EXT,
+            maxminddb.MODE_MMAP,
+            maxminddb.MODE_FILE,
+        ):
+            m = maxminddb.open_database(self.filename, mode=mode)
+            self.assertEqual(expected, m.get("1.1.0.0"), mode)
+            self.assertEqual(expected, m.get("1.1.1.0"), mode)
+            m.close()
+
+    def test_empty_languages(self):
+        """Ensure empty languages array doesn't cause issues with strict validation."""
+        writer = MMDBWriter(languages=[])
+        writer.insert_network("10.0.0.0/8", {"value": "test"})
+        writer.to_file(self.filename)
+        for mode in (maxminddb.MODE_MMAP_EXT, maxminddb.MODE_MMAP, maxminddb.MODE_FILE):
+            m = maxminddb.open_database(self.filename, mode=mode)
+            self.assertEqual({"value": "test"}, m.get("10.0.0.1"), mode)
             m.close()
 
     def test_int_type(self):
