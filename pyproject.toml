@@ -42,6 +42,7 @@ test = [
 ]
 dev = [
     "ruff",
+    "pyright==1.1.409",
 ]
 
 [project.urls]
@@ -50,13 +51,18 @@ Source = "https://github.com/vimt/MaxMind-DB-Writer-python"
 Tracker = "https://github.com/vimt/MaxMind-DB-Writer-python/issues"
 
 [tool.flit.sdist]
-include = ["mmdb_writer.py"]
+include = ["mmdb_writer/"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 filterwarnings = [
     "error",
 ]
+
+[tool.pyright]
+include = ["mmdb_writer"]
+pythonVersion = "3.9"
+typeCheckingMode = "standard"
 
 [tool.ruff]
 line-length = 88
