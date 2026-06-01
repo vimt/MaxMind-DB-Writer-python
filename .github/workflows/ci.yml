@@ -50,3 +50,6 @@ jobs:
         run: |
           uv run --python ${{ matrix.python-version }} --extra dev ruff check --no-fix
           uv run --python ${{ matrix.python-version }} --extra dev ruff format --check
+      - name: Type check
+        if: matrix.python-version == '3.13'
+        run: uv run --python ${{ matrix.python-version }} --extra dev pyright
